@@ -1,0 +1,693 @@
+// AdvisorApp.java - Clase Principal
+import javafx.application.Application;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.layout.*;
+import javafx.stage.Stage;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.scene.paint.Color;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+
+public class AdvisorApp extends Application {
+    
+    private Stage primaryStage;
+    private Advisor currentAdvisor;
+    private Client currentClient;
+    private DatabaseManager db;
+    
+    // Simulación de base de datos en memoria
+    private List<Client> clients = new ArrayList<>();
+    private List<Appointment> appointments = new ArrayList<>();
+    private List<Reservation> reservations = new ArrayList<>();
+    
+    @Override
+    public void start(Stage stage) {
+        this.primaryStage = stage;
+        this.db = new DatabaseManager();
+        initializeSampleData();
+        
+        primaryStage.setTitle("3 en ruta - Advisor System");
+        showLoginScreen();
+        primaryStage.show();
+    }
+    
+    private void initializeSampleData() {
+        // Clientes de ejemplo
+        clients.add(new Client("CL001", "John Doe", "john@email.com", "+1-555-0101", "123 Main St"));
+        clients.add(new Client("CL002", "Jane Smith", "jane@email.com", "+1-555-0102", "456 Oak Ave"));
+        clients.add(new Client("CL003", "Carlos García", "carlos@email.com", "+52-555-1234", 
+            LocalDate.of(2024, 3, 10).toString()));
+        
+        // Citas de ejemplo
+        appointments.add(new Appointment("AP001", "CL001", 
+            LocalDateTime.of(2024, 12, 15, 10, 0),
+            "Initial Consultation", "video_call"));
+        appointments.add(new Appointment("AP002", "CL002", 
+            LocalDateTime.of(2024, 12, 16, 14, 30),
+            "Reservation Confirmation", "video_call"));
+        
+        // Reservaciones de ejemplo
+        reservations.add(new Reservation("RES001", "CL001", "CDMX Tour Package", LocalDate.of(2026, 1, 14), LocalDate.of(2026, 1, 24), "confirmed", 1191.94));
+        reservations.add(new Reservation("RES002", "CL002", "Cancun Beach Package", LocalDate.of(2025, 12, 20), LocalDate.of(2025, 12, 27), "pending", 2500.00));
+    }
+    
+    private void showLoginScreen() {
+        VBox root = new VBox(20);
+        root.setAlignment(Pos.CENTER);
+        root.setPadding(new Insets(40));
+        root.setStyle("-fx-background-color: linear-gradient(to bottom right, #f97316, #d97706);");
+        
+        // Panel de login
+        VBox loginPanel = new VBox(15);
+        loginPanel.setAlignment(Pos.CENTER);
+        loginPanel.setPadding(new Insets(30));
+        loginPanel.setMaxWidth(400);
+        loginPanel.setStyle("-fx-background-color: white; -fx-background-radius: 15; " +
+                           "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 10, 0, 0, 5);");
+        
+        Label titleLabel = new Label("🌴 3 en ruta");
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 32));
+        titleLabel.setTextFill(Color.web("#f97316"));
+        
+        Label subtitleLabel = new Label("Advisor Portal");
+        subtitleLabel.setFont(Font.font("System", FontWeight.NORMAL, 16));
+        subtitleLabel.setTextFill(Color.GRAY);
+        
+        TextField usernameField = new TextField();
+        usernameField.setPromptText("Username");
+        usernameField.setPrefHeight(40);
+        usernameField.setStyle("-fx-font-size: 14px;");
+        
+        PasswordField passwordField = new PasswordField();
+        passwordField.setPromptText("Password");
+        passwordField.setPrefHeight(40);
+        passwordField.setStyle("-fx-font-size: 14px;");
+        
+        Button loginButton = new Button("Login");
+        loginButton.setPrefWidth(200);
+        loginButton.setPrefHeight(45);
+        loginButton.setStyle("-fx-background-color: #f97316; -fx-text-fill: white; " +
+                            "-fx-font-size: 16px; -fx-font-weight: bold; " +
+                            "-fx-background-radius: 8;");
+        
+        loginButton.setOnAction(e -> {
+            String username = usernameField.getText();
+            String password = passwordField.getText();
+            
+            // Validación simple (en producción usar hash de contraseña)
+            if (username.equals("admin") && password.equals("admin123")) {
+                currentAdvisor = new Advisor("ADV001", username, "Admin Advisor");
+                showDashboard();
+            } else {
+                showAlert("Login Failed", "Invalid username or password", Alert.AlertType.ERROR);
+            }
+        });
+        
+        loginPanel.getChildren().addAll(titleLabel, subtitleLabel, 
+            new Separator(), usernameField, passwordField, loginButton);
+        
+        Label infoLabel = new Label("Demo credentials: admin / admin123");
+        infoLabel.setTextFill(Color.WHITE);
+        infoLabel.setFont(Font.font(12));
+        
+        root.getChildren().addAll(loginPanel, infoLabel);
+        
+        Scene scene = new Scene(root, 800, 600);
+        primaryStage.setScene(scene);
+    }
+    
+    private void showDashboard() {
+        BorderPane root = new BorderPane();
+        root.setStyle("-fx-background-color: #f8f9fa;");
+        
+        // Top Bar
+        HBox topBar = createTopBar();
+        root.setTop(topBar);
+        
+        // Left Sidebar
+        VBox sidebar = createSidebar();
+        root.setLeft(sidebar);
+        
+        // Center - Main Content
+        VBox mainContent = createMainContent();
+        root.setCenter(mainContent);
+        
+        Scene scene = new Scene(root, 1200, 800);
+        primaryStage.setScene(scene);
+    }
+    
+    private HBox createTopBar() {
+        HBox topBar = new HBox(20);
+        topBar.setPadding(new Insets(15, 20, 15, 20));
+        topBar.setAlignment(Pos.CENTER_LEFT);
+        topBar.setStyle("-fx-background-color: white; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);");
+        
+        Label titleLabel = new Label("🌴 3 en Ruta - Advisor Portal");
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
+        titleLabel.setTextFill(Color.web("#f97316"));
+        
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        
+        Label advisorLabel = new Label("👤 " + currentAdvisor.getName());
+        advisorLabel.setFont(Font.font(14));
+        
+        Button logoutButton = new Button("Logout");
+        logoutButton.setStyle("-fx-background-color: #dc2626; -fx-text-fill: white; " +
+                             "-fx-font-weight: bold; -fx-padding: 8 15;");
+        logoutButton.setOnAction(e -> showLoginScreen());
+        
+        topBar.getChildren().addAll(titleLabel, spacer, advisorLabel, logoutButton);
+        return topBar;
+    }
+    
+    private VBox createSidebar() {
+        VBox sidebar = new VBox(10);
+        sidebar.setPrefWidth(250);
+        sidebar.setPadding(new Insets(20));
+        sidebar.setStyle("-fx-background-color: white;");
+        
+        Label menuLabel = new Label("MENU");
+        menuLabel.setFont(Font.font("System", FontWeight.BOLD, 12));
+        menuLabel.setTextFill(Color.GRAY);
+        
+        Button searchClientBtn = createMenuButton("🔍 Search Client", true);
+        Button calendarBtn = createMenuButton("📅 Calendar", false);
+        Button reservationsBtn = createMenuButton("📋 Reservations", false);
+        Button reportsBtn = createMenuButton("📊 Reports", false);
+        
+        searchClientBtn.setOnAction(e -> showSearchClientScreen());
+        calendarBtn.setOnAction(e -> showCalendarScreen());
+        reservationsBtn.setOnAction(e -> showReservationsScreen());
+        
+        sidebar.getChildren().addAll(menuLabel, new Separator(), 
+            searchClientBtn, calendarBtn, reservationsBtn, reportsBtn);
+        
+        return sidebar;
+    }
+    
+    private Button createMenuButton(String text, boolean selected) {
+        Button btn = new Button(text);
+        btn.setPrefWidth(210);
+        btn.setPrefHeight(45);
+        btn.setAlignment(Pos.CENTER_LEFT);
+        
+        if (selected) {
+            btn.setStyle("-fx-background-color: #fed7aa; -fx-text-fill: #f97316; " +
+                        "-fx-font-weight: bold; -fx-font-size: 14px; " +
+                        "-fx-background-radius: 8;");
+        } else {
+            btn.setStyle("-fx-background-color: transparent; -fx-text-fill: #6b7280; " +
+                        "-fx-font-size: 14px; -fx-background-radius: 8;");
+            btn.setOnMouseEntered(e -> 
+                btn.setStyle("-fx-background-color: #f3f4f6; -fx-text-fill: #374151; " +
+                           "-fx-font-size: 14px; -fx-background-radius: 8;"));
+            btn.setOnMouseExited(e -> 
+                btn.setStyle("-fx-background-color: transparent; -fx-text-fill: #6b7280; " +
+                           "-fx-font-size: 14px; -fx-background-radius: 8;"));
+        }
+        
+        return btn;
+    }
+    
+    private VBox createMainContent() {
+        VBox content = new VBox(20);
+        content.setPadding(new Insets(30));
+        
+        Label welcomeLabel = new Label("Welcome back, " + currentAdvisor.getName() + "!");
+        welcomeLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
+        
+        // Stats cards
+        HBox statsBox = new HBox(20);
+        statsBox.getChildren().addAll(
+            createStatCard("Today's Appointments", String.valueOf(appointments.size()), "#3b82f6"),
+            createStatCard("Pending Reservations", "2", "#f59e0b"),
+            createStatCard("Total Clients", String.valueOf(clients.size()), "#10b981")
+        );
+        
+        // Recent activity
+        Label activityLabel = new Label("Recent Activity");
+        activityLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
+        
+        VBox activityBox = createActivityBox();
+        
+        content.getChildren().addAll(welcomeLabel, statsBox, activityLabel, activityBox);
+        return content;
+    }
+    
+    private VBox createStatCard(String title, String value, String color) {
+        VBox card = new VBox(10);
+        card.setPadding(new Insets(20));
+        card.setPrefWidth(250);
+        card.setStyle("-fx-background-color: white; -fx-background-radius: 10; " +
+                     "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);");
+        
+        Label titleLabel = new Label(title);
+        titleLabel.setTextFill(Color.GRAY);
+        titleLabel.setFont(Font.font(12));
+        
+        Label valueLabel = new Label(value);
+        valueLabel.setTextFill(Color.web(color));
+        valueLabel.setFont(Font.font("System", FontWeight.BOLD, 32));
+        
+        card.getChildren().addAll(titleLabel, valueLabel);
+        return card;
+    }
+    
+    private VBox createActivityBox() {
+        VBox box = new VBox(10);
+        box.setPadding(new Insets(20));
+        box.setStyle("-fx-background-color: white; -fx-background-radius: 10; " +
+                    "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);");
+        
+        for (Appointment apt : appointments) {
+            Client client = findClientById(apt.getClientId());
+            if (client != null) {
+                HBox activityItem = createActivityItem(
+                    client.getName(),
+                    apt.getTitle(),
+                    apt.getDateTime().format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm"))
+                );
+                box.getChildren().add(activityItem);
+            }
+        }
+        
+        return box;
+    }
+    
+    private HBox createActivityItem(String clientName, String title, String date) {
+        HBox item = new HBox(15);
+        item.setPadding(new Insets(10));
+        item.setAlignment(Pos.CENTER_LEFT);
+        item.setStyle("-fx-background-color: #f9fafb; -fx-background-radius: 8;");
+        
+        VBox textBox = new VBox(5);
+        Label nameLabel = new Label(clientName);
+        nameLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
+        
+        Label titleLabel = new Label(title);
+        titleLabel.setTextFill(Color.GRAY);
+        titleLabel.setFont(Font.font(12));
+        
+        textBox.getChildren().addAll(nameLabel, titleLabel);
+        
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        
+        Label dateLabel = new Label(date);
+        dateLabel.setTextFill(Color.GRAY);
+        dateLabel.setFont(Font.font(11));
+        
+        item.getChildren().addAll(textBox, spacer, dateLabel);
+        return item;
+    }
+    
+    private void showSearchClientScreen() {
+        VBox content = new VBox(20);
+        content.setPadding(new Insets(30));
+        
+        Label titleLabel = new Label("🔍 Search Client");
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
+        
+        // Search box
+        HBox searchBox = new HBox(10);
+        TextField searchField = new TextField();
+        searchField.setPromptText("Enter email, phone, or client ID...");
+        searchField.setPrefWidth(400);
+        searchField.setPrefHeight(40);
+        
+        Button searchButton = new Button("Search");
+        searchButton.setPrefHeight(40);
+        searchButton.setStyle("-fx-background-color: #f97316; -fx-text-fill: white; " +
+                             "-fx-font-weight: bold; -fx-padding: 0 30;");
+        
+        searchBox.getChildren().addAll(searchField, searchButton);
+        
+        // Results area
+        VBox resultsBox = new VBox(10);
+        resultsBox.setPadding(new Insets(20));
+        resultsBox.setStyle("-fx-background-color: white; -fx-background-radius: 10;");
+        
+        searchButton.setOnAction(e -> {
+            String query = searchField.getText().trim().toLowerCase();
+            resultsBox.getChildren().clear();
+            
+            if (query.isEmpty()) {
+                resultsBox.getChildren().add(new Label("Please enter a search term"));
+                return;
+            }
+            
+            List<Client> results = clients.stream()
+                .filter(c -> c.getEmail().toLowerCase().contains(query) ||
+                           c.getPhone().toLowerCase().contains(query) ||
+                           c.getClientId().toLowerCase().contains(query) ||
+                           c.getName().toLowerCase().contains(query))
+                .toList();
+            
+            if (results.isEmpty()) {
+                resultsBox.getChildren().add(new Label("No clients found"));
+            } else {
+                for (Client client : results) {
+                    resultsBox.getChildren().add(createClientCard(client));
+                }
+            }
+        });
+        
+        content.getChildren().addAll(titleLabel, searchBox, resultsBox);
+        
+        BorderPane root = (BorderPane) primaryStage.getScene().getRoot();
+        root.setCenter(content);
+    }
+    
+    private VBox createClientCard(Client client) {
+        VBox card = new VBox(10);
+        card.setPadding(new Insets(15));
+        card.setStyle("-fx-background-color: #f9fafb; -fx-background-radius: 8; " +
+                     "-fx-border-color: #e5e7eb; -fx-border-radius: 8;");
+        
+        Label nameLabel = new Label(client.getName());
+        nameLabel.setFont(Font.font("System", FontWeight.BOLD, 16));
+        
+        Label idLabel = new Label("ID: " + client.getClientId());
+        Label emailLabel = new Label("📧 " + client.getEmail());
+        Label phoneLabel = new Label("📱 " + client.getPhone());
+        
+        Button viewButton = new Button("View Full Profile");
+        viewButton.setStyle("-fx-background-color: #f97316; -fx-text-fill: white; " +
+                           "-fx-font-weight: bold;");
+        viewButton.setOnAction(e -> showClientProfile(client));
+        
+        card.getChildren().addAll(nameLabel, idLabel, emailLabel, phoneLabel, viewButton);
+        return card;
+    }
+    
+    private void showClientProfile(Client client) {
+        currentClient = client;
+        
+        VBox content = new VBox(20);
+        content.setPadding(new Insets(30));
+        
+        // Header
+        HBox header = new HBox(20);
+        header.setAlignment(Pos.CENTER_LEFT);
+        
+        Label nameLabel = new Label(client.getName());
+        nameLabel.setFont(Font.font("System", FontWeight.BOLD, 28));
+        
+        Button backButton = new Button("← Back");
+        backButton.setOnAction(e -> showSearchClientScreen());
+        
+        header.getChildren().addAll(backButton, nameLabel);
+        
+        // Client info cards
+        HBox infoBox = new HBox(15);
+        infoBox.getChildren().addAll(
+            createInfoCard("Client ID", client.getClientId()),
+            createInfoCard("Email", client.getEmail()),
+            createInfoCard("Phone", client.getPhone())
+        );
+        
+        // Tabs
+        TabPane tabPane = new TabPane();
+        tabPane.getTabs().addAll(
+            createReservationsTab(client),
+            createAppointmentsTab(client),
+            createNotesTab(client)
+        );
+        
+        content.getChildren().addAll(header, infoBox, tabPane);
+        
+        BorderPane root = (BorderPane) primaryStage.getScene().getRoot();
+        root.setCenter(content);
+    }
+    
+    private VBox createInfoCard(String label, String value) {
+        VBox card = new VBox(5);
+        card.setPadding(new Insets(15));
+        card.setStyle("-fx-background-color: white; -fx-background-radius: 8; " +
+                     "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);");
+        
+        Label labelText = new Label(label);
+        labelText.setTextFill(Color.GRAY);
+        labelText.setFont(Font.font(12));
+        
+        Label valueText = new Label(value);
+        valueText.setFont(Font.font("System", FontWeight.BOLD, 14));
+        
+        card.getChildren().addAll(labelText, valueText);
+        return card;
+    }
+    
+    private Tab createReservationsTab(Client client) {
+        Tab tab = new Tab("Reservations");
+        tab.setClosable(false);
+        
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        
+        List<Reservation> clientReservations = reservations.stream()
+            .filter(r -> r.getClientId().equals(client.getClientId()))
+            .toList();
+        
+        for (Reservation res : clientReservations) {
+            content.getChildren().add(createReservationCard(res));
+        }
+        
+        if (clientReservations.isEmpty()) {
+            content.getChildren().add(new Label("No reservations found"));
+        }
+        
+        tab.setContent(content);
+        return tab;
+    }
+    
+    private VBox createReservationCard(Reservation res) {
+        VBox card = new VBox(10);
+        card.setPadding(new Insets(15));
+        card.setStyle("-fx-background-color: white; -fx-background-radius: 8; " +
+                     "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);");
+        
+        Label titleLabel = new Label(res.getPackageName());
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 16));
+        
+        Label datesLabel = new Label("📅 " + res.getStartDate() + " to " + res.getEndDate());
+        Label priceLabel = new Label("💰 $" + String.format("%.2f", res.getTotalPrice()));
+        priceLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
+        priceLabel.setTextFill(Color.web("#f97316"));
+        
+        Label statusLabel = new Label("Status: " + res.getStatus().toUpperCase());
+        statusLabel.setStyle("-fx-background-color: " + 
+            (res.getStatus().equals("confirmed") ? "#d1fae5" : "#fef3c7") + 
+            "; -fx-padding: 5 10; -fx-background-radius: 5;");
+        
+        card.getChildren().addAll(titleLabel, datesLabel, priceLabel, statusLabel);
+        return card;
+    }
+    
+    private Tab createAppointmentsTab(Client client) {
+        Tab tab = new Tab("Appointments");
+        tab.setClosable(false);
+        
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        
+        Button scheduleButton = new Button("+ Schedule New Appointment");
+        scheduleButton.setStyle("-fx-background-color: #f97316; -fx-text-fill: white; " +
+                               "-fx-font-weight: bold;");
+        scheduleButton.setOnAction(e -> showScheduleDialog(client));
+        
+        content.getChildren().add(scheduleButton);
+        
+        List<Appointment> clientAppointments = appointments.stream()
+            .filter(a -> a.getClientId().equals(client.getClientId()))
+            .toList();
+        
+        for (Appointment apt : clientAppointments) {
+            content.getChildren().add(createAppointmentCard(apt));
+        }
+        
+        tab.setContent(content);
+        return tab;
+    }
+    
+    private VBox createAppointmentCard(Appointment apt) {
+        VBox card = new VBox(8);
+        card.setPadding(new Insets(15));
+        card.setStyle("-fx-background-color: #eff6ff; -fx-background-radius: 8;");
+        
+        Label titleLabel = new Label(apt.getTitle());
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
+        
+        Label dateLabel = new Label("📅 " + apt.getDateTime()
+            .format(DateTimeFormatter.ofPattern("EEEE, MMMM dd, yyyy 'at' HH:mm")));
+        
+        Label typeLabel = new Label("📹 " + apt.getType());
+        
+        card.getChildren().addAll(titleLabel, dateLabel, typeLabel);
+        return card;
+    }
+    
+    private Tab createNotesTab(Client client) {
+        Tab tab = new Tab("Notes");
+        tab.setClosable(false);
+        
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        
+        TextArea notesArea = new TextArea();
+        notesArea.setPromptText("Add notes about this client...");
+        notesArea.setPrefRowCount(10);
+        
+        Button saveButton = new Button("Save Notes");
+        saveButton.setStyle("-fx-background-color: #10b981; -fx-text-fill: white; " +
+                           "-fx-font-weight: bold;");
+        saveButton.setOnAction(e -> {
+            showAlert("Success", "Notes saved successfully", Alert.AlertType.INFORMATION);
+        });
+        
+        content.getChildren().addAll(notesArea, saveButton);
+        tab.setContent(content);
+        return tab;
+    }
+    
+    private void showScheduleDialog(Client client) {
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Schedule Appointment");
+        dialog.setHeaderText("Schedule a new appointment for " + client.getName());
+        
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        
+        TextField titleField = new TextField();
+        titleField.setPromptText("Appointment title");
+        
+        DatePicker datePicker = new DatePicker(LocalDate.now());
+        
+        ComboBox<String> timeCombo = new ComboBox<>();
+        for (int h = 9; h <= 18; h++) {
+            timeCombo.getItems().addAll(
+                String.format("%02d:00", h),
+                String.format("%02d:30", h)
+            );
+        }
+        timeCombo.setValue("10:00");
+        
+        ComboBox<String> typeCombo = new ComboBox<>();
+        typeCombo.getItems().addAll("video_call", "phone_call", "in_person");
+        typeCombo.setValue("video_call");
+        
+        content.getChildren().addAll(
+            new Label("Title:"), titleField,
+            new Label("Date:"), datePicker,
+            new Label("Time:"), timeCombo,
+            new Label("Type:"), typeCombo
+        );
+        
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        
+        dialog.showAndWait().ifPresent((ButtonType response) -> {
+            if (response == ButtonType.OK) {
+                String[] timeParts = timeCombo.getValue().split(":");
+                LocalDateTime dateTime = datePicker.getValue()
+                    .atTime(Integer.parseInt(timeParts[0]), Integer.parseInt(timeParts[1]));
+                
+                Appointment newApt = new Appointment(
+                    "AP" + String.format("%03d", appointments.size() + 1),
+                    client.getClientId(),
+                    dateTime,
+                    titleField.getText(),
+                    typeCombo.getValue()
+                );
+                appointments.add(newApt);
+                
+                showAlert("Success", "Appointment scheduled successfully", 
+                    Alert.AlertType.INFORMATION);
+                showClientProfile(client);
+            }
+        });
+    }
+    
+    private void showCalendarScreen() {
+        VBox content = new VBox(20);
+        content.setPadding(new Insets(30));
+        
+        Label titleLabel = new Label("📅 Appointment Calendar");
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
+        
+        // Calendar view (simplified)
+        VBox calendarBox = new VBox(15);
+        calendarBox.setPadding(new Insets(20));
+        calendarBox.setStyle("-fx-background-color: white; -fx-background-radius: 10;");
+        
+        Label monthLabel = new Label(LocalDate.now().getMonth() + " " + LocalDate.now().getYear());
+        monthLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
+        
+        calendarBox.getChildren().add(monthLabel);
+        
+        for (Appointment apt : appointments) {
+            Client client = findClientById(apt.getClientId());
+            if (client != null) {
+                calendarBox.getChildren().add(createCalendarItem(apt, client));
+            }
+        }
+        
+        content.getChildren().addAll(titleLabel, calendarBox);
+        
+        BorderPane root = (BorderPane) primaryStage.getScene().getRoot();
+        root.setCenter(content);
+    }
+    
+    private HBox createCalendarItem(Appointment apt, Client client) {
+        HBox item = new HBox(15);
+        item.setPadding(new Insets(15));
+        item.setAlignment(Pos.CENTER_LEFT);
+        item.setStyle("-fx-background-color: #dbeafe; -fx-background-radius: 8;");
+        
+        VBox timeBox = new VBox(3);
+        Label dateLabel = new Label(apt.getDateTime().format(DateTimeFormatter.ofPattern("MMM dd")));
+        dateLabel.setFont(Font.font("System", FontWeight.BOLD, 12));
+        Label timeLabel = new Label(apt.getDateTime().format(DateTimeFormatter.ofPattern("HH:mm")));
+        timeLabel.setFont(Font.font(14));
+        timeBox.getChildren().addAll(dateLabel, timeLabel);
+        
+        VBox infoBox = new VBox(5);
+        Label clientLabel = new Label(client.getName());
+        clientLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
+        Label titleLabel = new Label(apt.getTitle());
+        titleLabel.setTextFill(Color.GRAY);
+        infoBox.getChildren().addAll(clientLabel, titleLabel);
+        
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        item.getChildren().addAll(timeBox, infoBox, spacer);
+        return item;
+    }
+
+    private Client findClientById(String clientId) {
+        return clients.stream()
+            .filter(c -> c.getId().equals(clientId))
+            .findFirst()
+            .orElse(null);
+    }
+
+    private void showAlert(String title, String message, javafx.scene.control.Alert.AlertType type) {
+        javafx.scene.control.Alert alert = new javafx.scene.control.Alert(type);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+
+    private void showReservationsScreen() {
+        System.out.println("Showing reservations screen - To be implemented");
+    }
+}
+
