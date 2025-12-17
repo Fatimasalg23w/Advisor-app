@@ -1,693 +1,635 @@
-// AdvisorApp.java - Clase Principal
-import javafx.application.Application;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.Scene;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
-import javafx.stage.Stage;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
-import javafx.scene.paint.Color;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
+import models.*;
+import services.*;
 
-public class AdvisorApp extends Application {
+public class CompleteTourAdvisorApp {
+    private static Scanner scanner = new Scanner(System.in);
+    private static MongoDBConnection dbConnection;
+    private static AdminService adminService;
+    private static AdvisorService advisorService;
+    private static TourService tourService;
+    private static UserService userService;
+    private static BookingService bookingService;
     
-    private Stage primaryStage;
-    private Advisor currentAdvisor;
-    private Client currentClient;
-    private DatabaseManager db;
+    private static Admin currentAdmin;
+    private static Advisor currentAdvisor;
+    private static User currentUser;
     
-    // Simulación de base de datos en memoria
-    private List<Client> clients = new ArrayList<>();
-    private List<Appointment> appointments = new ArrayList<>();
-    private List<Reservation> reservations = new ArrayList<>();
-    
-    @Override
-    public void start(Stage stage) {
-        this.primaryStage = stage;
-        this.db = new DatabaseManager();
-        initializeSampleData();
+    public static void main(String[] args) {
+        System.out.println("╔═══════════════════════════════════════════╗");
+        System.out.println("║    🌍 TOUR ADVISOR - Sistema Completo    ║");
+        System.out.println("╚═══════════════════════════════════════════╝");
         
-        primaryStage.setTitle("3 en ruta - Advisor System");
-        showLoginScreen();
-        primaryStage.show();
-    }
-    
-    private void initializeSampleData() {
-        // Clientes de ejemplo
-        clients.add(new Client("CL001", "John Doe", "john@email.com", "+1-555-0101", "123 Main St"));
-        clients.add(new Client("CL002", "Jane Smith", "jane@email.com", "+1-555-0102", "456 Oak Ave"));
-        clients.add(new Client("CL003", "Carlos García", "carlos@email.com", "+52-555-1234", 
-            LocalDate.of(2024, 3, 10).toString()));
-        
-        // Citas de ejemplo
-        appointments.add(new Appointment("AP001", "CL001", 
-            LocalDateTime.of(2024, 12, 15, 10, 0),
-            "Initial Consultation", "video_call"));
-        appointments.add(new Appointment("AP002", "CL002", 
-            LocalDateTime.of(2024, 12, 16, 14, 30),
-            "Reservation Confirmation", "video_call"));
-        
-        // Reservaciones de ejemplo
-        reservations.add(new Reservation("RES001", "CL001", "CDMX Tour Package", LocalDate.of(2026, 1, 14), LocalDate.of(2026, 1, 24), "confirmed", 1191.94));
-        reservations.add(new Reservation("RES002", "CL002", "Cancun Beach Package", LocalDate.of(2025, 12, 20), LocalDate.of(2025, 12, 27), "pending", 2500.00));
-    }
-    
-    private void showLoginScreen() {
-        VBox root = new VBox(20);
-        root.setAlignment(Pos.CENTER);
-        root.setPadding(new Insets(40));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom right, #f97316, #d97706);");
-        
-        // Panel de login
-        VBox loginPanel = new VBox(15);
-        loginPanel.setAlignment(Pos.CENTER);
-        loginPanel.setPadding(new Insets(30));
-        loginPanel.setMaxWidth(400);
-        loginPanel.setStyle("-fx-background-color: white; -fx-background-radius: 15; " +
-                           "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 10, 0, 0, 5);");
-        
-        Label titleLabel = new Label("🌴 3 en ruta");
-        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 32));
-        titleLabel.setTextFill(Color.web("#f97316"));
-        
-        Label subtitleLabel = new Label("Advisor Portal");
-        subtitleLabel.setFont(Font.font("System", FontWeight.NORMAL, 16));
-        subtitleLabel.setTextFill(Color.GRAY);
-        
-        TextField usernameField = new TextField();
-        usernameField.setPromptText("Username");
-        usernameField.setPrefHeight(40);
-        usernameField.setStyle("-fx-font-size: 14px;");
-        
-        PasswordField passwordField = new PasswordField();
-        passwordField.setPromptText("Password");
-        passwordField.setPrefHeight(40);
-        passwordField.setStyle("-fx-font-size: 14px;");
-        
-        Button loginButton = new Button("Login");
-        loginButton.setPrefWidth(200);
-        loginButton.setPrefHeight(45);
-        loginButton.setStyle("-fx-background-color: #f97316; -fx-text-fill: white; " +
-                            "-fx-font-size: 16px; -fx-font-weight: bold; " +
-                            "-fx-background-radius: 8;");
-        
-        loginButton.setOnAction(e -> {
-            String username = usernameField.getText();
-            String password = passwordField.getText();
+        try {
+            dbConnection = new MongoDBConnection();
+            adminService = new AdminService(dbConnection.getAdminsCollection());
+            advisorService = new AdvisorService(dbConnection.getAdvisorsCollection());
+            tourService = new TourService(dbConnection.getToursCollection());
+            userService = new UserService(dbConnection.getUsersCollection());
+            bookingService = new BookingService(dbConnection.getBookingsCollection());
             
-            // Validación simple (en producción usar hash de contraseña)
-            if (username.equals("admin") && password.equals("admin123")) {
-                currentAdvisor = new Advisor("ADV001", username, "Admin Advisor");
-                showDashboard();
-            } else {
-                showAlert("Login Failed", "Invalid username or password", Alert.AlertType.ERROR);
+            System.out.println("✅ Conexión a MongoDB establecida");
+            mainMenu();
+            
+        } catch (Exception e) {
+            System.err.println("❌ Error: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            if (dbConnection != null) {
+                dbConnection.close();
             }
-        });
-        
-        loginPanel.getChildren().addAll(titleLabel, subtitleLabel, 
-            new Separator(), usernameField, passwordField, loginButton);
-        
-        Label infoLabel = new Label("Demo credentials: admin / admin123");
-        infoLabel.setTextFill(Color.WHITE);
-        infoLabel.setFont(Font.font(12));
-        
-        root.getChildren().addAll(loginPanel, infoLabel);
-        
-        Scene scene = new Scene(root, 800, 600);
-        primaryStage.setScene(scene);
+            scanner.close();
+        }
     }
     
-    private void showDashboard() {
-        BorderPane root = new BorderPane();
-        root.setStyle("-fx-background-color: #f8f9fa;");
-        
-        // Top Bar
-        HBox topBar = createTopBar();
-        root.setTop(topBar);
-        
-        // Left Sidebar
-        VBox sidebar = createSidebar();
-        root.setLeft(sidebar);
-        
-        // Center - Main Content
-        VBox mainContent = createMainContent();
-        root.setCenter(mainContent);
-        
-        Scene scene = new Scene(root, 1200, 800);
-        primaryStage.setScene(scene);
+    private static void mainMenu() {
+        while (true) {
+            System.out.println("\n╔════════════════════════════════════╗");
+            System.out.println("║         MENÚ PRINCIPAL             ║");
+            System.out.println("╚════════════════════════════════════╝");
+            System.out.println("1. 👤 Login Admin");
+            System.out.println("2. 🎯 Login Advisor");
+            System.out.println("3. 👥 Login Usuario/Cliente");
+            System.out.println("4. 📝 Registro Usuario Nuevo");
+            System.out.println("0. ❌ Salir");
+            System.out.print("\nSeleccione opción: ");
+            
+            int choice = scanner.nextInt();
+            scanner.nextLine();
+            
+            switch (choice) {
+                case 1: loginAdmin(); break;
+                case 2: loginAdvisor(); break;
+                case 3: loginUser(); break;
+                case 4: registerUser(); break;
+                case 0:
+                    System.out.println("👋 ¡Hasta luego!");
+                    return;
+                default:
+                    System.out.println("❌ Opción inválida");
+            }
+        }
     }
     
-    private HBox createTopBar() {
-        HBox topBar = new HBox(20);
-        topBar.setPadding(new Insets(15, 20, 15, 20));
-        topBar.setAlignment(Pos.CENTER_LEFT);
-        topBar.setStyle("-fx-background-color: white; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);");
-        
-        Label titleLabel = new Label("🌴 3 en Ruta - Advisor Portal");
-        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
-        titleLabel.setTextFill(Color.web("#f97316"));
-        
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-        
-        Label advisorLabel = new Label("👤 " + currentAdvisor.getName());
-        advisorLabel.setFont(Font.font(14));
-        
-        Button logoutButton = new Button("Logout");
-        logoutButton.setStyle("-fx-background-color: #dc2626; -fx-text-fill: white; " +
-                             "-fx-font-weight: bold; -fx-padding: 8 15;");
-        logoutButton.setOnAction(e -> showLoginScreen());
-        
-        topBar.getChildren().addAll(titleLabel, spacer, advisorLabel, logoutButton);
-        return topBar;
-    }
+    // ========================================
+    // LOGIN METHODS
+    // ========================================
     
-    private VBox createSidebar() {
-        VBox sidebar = new VBox(10);
-        sidebar.setPrefWidth(250);
-        sidebar.setPadding(new Insets(20));
-        sidebar.setStyle("-fx-background-color: white;");
+    private static void loginAdmin() {
+        System.out.println("\n🔐 LOGIN ADMINISTRADOR");
+        System.out.print("Username: ");
+        String username = scanner.nextLine();
+        System.out.print("Password: ");
+        String password = scanner.nextLine();
         
-        Label menuLabel = new Label("MENU");
-        menuLabel.setFont(Font.font("System", FontWeight.BOLD, 12));
-        menuLabel.setTextFill(Color.GRAY);
+        currentAdmin = adminService.authenticate(username, password);
         
-        Button searchClientBtn = createMenuButton("🔍 Search Client", true);
-        Button calendarBtn = createMenuButton("📅 Calendar", false);
-        Button reservationsBtn = createMenuButton("📋 Reservations", false);
-        Button reportsBtn = createMenuButton("📊 Reports", false);
-        
-        searchClientBtn.setOnAction(e -> showSearchClientScreen());
-        calendarBtn.setOnAction(e -> showCalendarScreen());
-        reservationsBtn.setOnAction(e -> showReservationsScreen());
-        
-        sidebar.getChildren().addAll(menuLabel, new Separator(), 
-            searchClientBtn, calendarBtn, reservationsBtn, reportsBtn);
-        
-        return sidebar;
-    }
-    
-    private Button createMenuButton(String text, boolean selected) {
-        Button btn = new Button(text);
-        btn.setPrefWidth(210);
-        btn.setPrefHeight(45);
-        btn.setAlignment(Pos.CENTER_LEFT);
-        
-        if (selected) {
-            btn.setStyle("-fx-background-color: #fed7aa; -fx-text-fill: #f97316; " +
-                        "-fx-font-weight: bold; -fx-font-size: 14px; " +
-                        "-fx-background-radius: 8;");
+        if (currentAdmin != null) {
+            System.out.println("✅ Bienvenido Admin: " + currentAdmin.getFullName());
+            adminMenu();
         } else {
-            btn.setStyle("-fx-background-color: transparent; -fx-text-fill: #6b7280; " +
-                        "-fx-font-size: 14px; -fx-background-radius: 8;");
-            btn.setOnMouseEntered(e -> 
-                btn.setStyle("-fx-background-color: #f3f4f6; -fx-text-fill: #374151; " +
-                           "-fx-font-size: 14px; -fx-background-radius: 8;"));
-            btn.setOnMouseExited(e -> 
-                btn.setStyle("-fx-background-color: transparent; -fx-text-fill: #6b7280; " +
-                           "-fx-font-size: 14px; -fx-background-radius: 8;"));
+            System.out.println("❌ Credenciales incorrectas");
         }
-        
-        return btn;
     }
     
-    private VBox createMainContent() {
-        VBox content = new VBox(20);
-        content.setPadding(new Insets(30));
+    private static void loginAdvisor() {
+        System.out.println("\n🔐 LOGIN ADVISOR");
+        System.out.print("Username: ");
+        String username = scanner.nextLine();
+        System.out.print("Password: ");
+        String password = scanner.nextLine();
         
-        Label welcomeLabel = new Label("Welcome back, " + currentAdvisor.getName() + "!");
-        welcomeLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
+        currentAdvisor = advisorService.authenticate(username, password);
         
-        // Stats cards
-        HBox statsBox = new HBox(20);
-        statsBox.getChildren().addAll(
-            createStatCard("Today's Appointments", String.valueOf(appointments.size()), "#3b82f6"),
-            createStatCard("Pending Reservations", "2", "#f59e0b"),
-            createStatCard("Total Clients", String.valueOf(clients.size()), "#10b981")
-        );
-        
-        // Recent activity
-        Label activityLabel = new Label("Recent Activity");
-        activityLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
-        
-        VBox activityBox = createActivityBox();
-        
-        content.getChildren().addAll(welcomeLabel, statsBox, activityLabel, activityBox);
-        return content;
+        if (currentAdvisor != null) {
+            System.out.println("✅ Bienvenido Advisor: " + currentAdvisor.getFullName());
+            advisorMenu();
+        } else {
+            System.out.println("❌ Credenciales incorrectas");
+        }
     }
     
-    private VBox createStatCard(String title, String value, String color) {
-        VBox card = new VBox(10);
-        card.setPadding(new Insets(20));
-        card.setPrefWidth(250);
-        card.setStyle("-fx-background-color: white; -fx-background-radius: 10; " +
-                     "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);");
+    private static void loginUser() {
+        System.out.println("\n🔐 LOGIN USUARIO");
+        System.out.print("Username: ");
+        String username = scanner.nextLine();
+        System.out.print("Password: ");
+        String password = scanner.nextLine();
         
-        Label titleLabel = new Label(title);
-        titleLabel.setTextFill(Color.GRAY);
-        titleLabel.setFont(Font.font(12));
+        currentUser = userService.authenticate(username, password);
         
-        Label valueLabel = new Label(value);
-        valueLabel.setTextFill(Color.web(color));
-        valueLabel.setFont(Font.font("System", FontWeight.BOLD, 32));
-        
-        card.getChildren().addAll(titleLabel, valueLabel);
-        return card;
+        if (currentUser != null) {
+            System.out.println("✅ Bienvenido: " + currentUser.getFullName());
+            userMenu();
+        } else {
+            System.out.println("❌ Credenciales incorrectas");
+        }
     }
     
-    private VBox createActivityBox() {
-        VBox box = new VBox(10);
-        box.setPadding(new Insets(20));
-        box.setStyle("-fx-background-color: white; -fx-background-radius: 10; " +
-                    "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);");
+    private static void registerUser() {
+        System.out.println("\n📝 REGISTRO DE USUARIO");
+        System.out.println("-".repeat(50));
         
-        for (Appointment apt : appointments) {
-            Client client = findClientById(apt.getClientId());
-            if (client != null) {
-                HBox activityItem = createActivityItem(
-                    client.getName(),
-                    apt.getTitle(),
-                    apt.getDateTime().format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm"))
-                );
-                box.getChildren().add(activityItem);
+        System.out.print("Username: ");
+        String username = scanner.nextLine();
+        System.out.print("Password: ");
+        String password = scanner.nextLine();
+        System.out.print("Email: ");
+        String email = scanner.nextLine();
+        System.out.print("Nombre completo: ");
+        String fullName = scanner.nextLine();
+        System.out.print("Teléfono: ");
+        String phone = scanner.nextLine();
+        
+        User newUser = new User(username, password, email, fullName);
+        newUser.setPhone(phone);
+        
+        if (userService.createUser(newUser)) {
+            System.out.println("✅ Usuario registrado exitosamente");
+        } else {
+            System.out.println("❌ Error al registrar usuario");
+        }
+    }
+    
+    // ========================================
+    // ADMIN MENU
+    // ========================================
+    
+    private static void adminMenu() {
+        while (true) {
+            System.out.println("\n╔════════════════════════════════════╗");
+            System.out.println("║       MENÚ ADMINISTRADOR           ║");
+            System.out.println("╚════════════════════════════════════╝");
+            System.out.println("1. 🎯 Gestión de Advisors");
+            System.out.println("2. 🌍 Gestión de Tours");
+            System.out.println("3. 👥 Gestión de Usuarios");
+            System.out.println("4. 📊 Reportes");
+            System.out.println("0. 🚪 Cerrar Sesión");
+            System.out.print("\nSeleccione opción: ");
+            
+            int choice = scanner.nextInt();
+            scanner.nextLine();
+            
+            switch (choice) {
+                case 1: adminAdvisorsMenu(); break;
+                case 2: adminToursMenu(); break;
+                case 3: adminUsersMenu(); break;
+                case 4: adminReports(); break;
+                case 0:
+                    currentAdmin = null;
+                    return;
+                default:
+                    System.out.println("❌ Opción inválida");
             }
         }
-        
-        return box;
     }
     
-    private HBox createActivityItem(String clientName, String title, String date) {
-        HBox item = new HBox(15);
-        item.setPadding(new Insets(10));
-        item.setAlignment(Pos.CENTER_LEFT);
-        item.setStyle("-fx-background-color: #f9fafb; -fx-background-radius: 8;");
-        
-        VBox textBox = new VBox(5);
-        Label nameLabel = new Label(clientName);
-        nameLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
-        
-        Label titleLabel = new Label(title);
-        titleLabel.setTextFill(Color.GRAY);
-        titleLabel.setFont(Font.font(12));
-        
-        textBox.getChildren().addAll(nameLabel, titleLabel);
-        
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-        
-        Label dateLabel = new Label(date);
-        dateLabel.setTextFill(Color.GRAY);
-        dateLabel.setFont(Font.font(11));
-        
-        item.getChildren().addAll(textBox, spacer, dateLabel);
-        return item;
-    }
-    
-    private void showSearchClientScreen() {
-        VBox content = new VBox(20);
-        content.setPadding(new Insets(30));
-        
-        Label titleLabel = new Label("🔍 Search Client");
-        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
-        
-        // Search box
-        HBox searchBox = new HBox(10);
-        TextField searchField = new TextField();
-        searchField.setPromptText("Enter email, phone, or client ID...");
-        searchField.setPrefWidth(400);
-        searchField.setPrefHeight(40);
-        
-        Button searchButton = new Button("Search");
-        searchButton.setPrefHeight(40);
-        searchButton.setStyle("-fx-background-color: #f97316; -fx-text-fill: white; " +
-                             "-fx-font-weight: bold; -fx-padding: 0 30;");
-        
-        searchBox.getChildren().addAll(searchField, searchButton);
-        
-        // Results area
-        VBox resultsBox = new VBox(10);
-        resultsBox.setPadding(new Insets(20));
-        resultsBox.setStyle("-fx-background-color: white; -fx-background-radius: 10;");
-        
-        searchButton.setOnAction(e -> {
-            String query = searchField.getText().trim().toLowerCase();
-            resultsBox.getChildren().clear();
+    private static void adminAdvisorsMenu() {
+        while (true) {
+            System.out.println("\n🎯 GESTIÓN DE ADVISORS");
+            System.out.println("1. Crear Advisor");
+            System.out.println("2. Listar Advisors");
+            System.out.println("3. Ver Detalles");
+            System.out.println("0. Volver");
+            System.out.print("\nOpción: ");
             
-            if (query.isEmpty()) {
-                resultsBox.getChildren().add(new Label("Please enter a search term"));
-                return;
+            int choice = scanner.nextInt();
+            scanner.nextLine();
+            
+            switch (choice) {
+                case 1: adminCreateAdvisor(); break;
+                case 2: adminListAdvisors(); break;
+                case 3: adminViewAdvisor(); break;
+                case 0: return;
+                default: System.out.println("❌ Opción inválida");
             }
-            
-            List<Client> results = clients.stream()
-                .filter(c -> c.getEmail().toLowerCase().contains(query) ||
-                           c.getPhone().toLowerCase().contains(query) ||
-                           c.getClientId().toLowerCase().contains(query) ||
-                           c.getName().toLowerCase().contains(query))
-                .toList();
-            
-            if (results.isEmpty()) {
-                resultsBox.getChildren().add(new Label("No clients found"));
-            } else {
-                for (Client client : results) {
-                    resultsBox.getChildren().add(createClientCard(client));
-                }
-            }
-        });
-        
-        content.getChildren().addAll(titleLabel, searchBox, resultsBox);
-        
-        BorderPane root = (BorderPane) primaryStage.getScene().getRoot();
-        root.setCenter(content);
+        }
     }
     
-    private VBox createClientCard(Client client) {
-        VBox card = new VBox(10);
-        card.setPadding(new Insets(15));
-        card.setStyle("-fx-background-color: #f9fafb; -fx-background-radius: 8; " +
-                     "-fx-border-color: #e5e7eb; -fx-border-radius: 8;");
+    private static void adminCreateAdvisor() {
+        System.out.println("\n➕ CREAR ADVISOR");
+        System.out.print("Username: ");
+        String username = scanner.nextLine();
+        System.out.print("Password: ");
+        String password = scanner.nextLine();
+        System.out.print("Email: ");
+        String email = scanner.nextLine();
+        System.out.print("Nombre completo: ");
+        String fullName = scanner.nextLine();
         
-        Label nameLabel = new Label(client.getName());
-        nameLabel.setFont(Font.font("System", FontWeight.BOLD, 16));
+        Advisor advisor = new Advisor(username, password, email, fullName);
         
-        Label idLabel = new Label("ID: " + client.getClientId());
-        Label emailLabel = new Label("📧 " + client.getEmail());
-        Label phoneLabel = new Label("📱 " + client.getPhone());
-        
-        Button viewButton = new Button("View Full Profile");
-        viewButton.setStyle("-fx-background-color: #f97316; -fx-text-fill: white; " +
-                           "-fx-font-weight: bold;");
-        viewButton.setOnAction(e -> showClientProfile(client));
-        
-        card.getChildren().addAll(nameLabel, idLabel, emailLabel, phoneLabel, viewButton);
-        return card;
+        if (advisorService.createAdvisor(advisor)) {
+            System.out.println("✅ Advisor creado");
+        } else {
+            System.out.println("❌ Error al crear");
+        }
     }
     
-    private void showClientProfile(Client client) {
-        currentClient = client;
+    private static void adminListAdvisors() {
+        System.out.println("\n📋 LISTA DE ADVISORS");
+        List<Advisor> advisors = advisorService.getAllAdvisors();
         
-        VBox content = new VBox(20);
-        content.setPadding(new Insets(30));
-        
-        // Header
-        HBox header = new HBox(20);
-        header.setAlignment(Pos.CENTER_LEFT);
-        
-        Label nameLabel = new Label(client.getName());
-        nameLabel.setFont(Font.font("System", FontWeight.BOLD, 28));
-        
-        Button backButton = new Button("← Back");
-        backButton.setOnAction(e -> showSearchClientScreen());
-        
-        header.getChildren().addAll(backButton, nameLabel);
-        
-        // Client info cards
-        HBox infoBox = new HBox(15);
-        infoBox.getChildren().addAll(
-            createInfoCard("Client ID", client.getClientId()),
-            createInfoCard("Email", client.getEmail()),
-            createInfoCard("Phone", client.getPhone())
-        );
-        
-        // Tabs
-        TabPane tabPane = new TabPane();
-        tabPane.getTabs().addAll(
-            createReservationsTab(client),
-            createAppointmentsTab(client),
-            createNotesTab(client)
-        );
-        
-        content.getChildren().addAll(header, infoBox, tabPane);
-        
-        BorderPane root = (BorderPane) primaryStage.getScene().getRoot();
-        root.setCenter(content);
-    }
-    
-    private VBox createInfoCard(String label, String value) {
-        VBox card = new VBox(5);
-        card.setPadding(new Insets(15));
-        card.setStyle("-fx-background-color: white; -fx-background-radius: 8; " +
-                     "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);");
-        
-        Label labelText = new Label(label);
-        labelText.setTextFill(Color.GRAY);
-        labelText.setFont(Font.font(12));
-        
-        Label valueText = new Label(value);
-        valueText.setFont(Font.font("System", FontWeight.BOLD, 14));
-        
-        card.getChildren().addAll(labelText, valueText);
-        return card;
-    }
-    
-    private Tab createReservationsTab(Client client) {
-        Tab tab = new Tab("Reservations");
-        tab.setClosable(false);
-        
-        VBox content = new VBox(15);
-        content.setPadding(new Insets(20));
-        
-        List<Reservation> clientReservations = reservations.stream()
-            .filter(r -> r.getClientId().equals(client.getClientId()))
-            .toList();
-        
-        for (Reservation res : clientReservations) {
-            content.getChildren().add(createReservationCard(res));
+        if (advisors.isEmpty()) {
+            System.out.println("No hay advisors");
+            return;
         }
         
-        if (clientReservations.isEmpty()) {
-            content.getChildren().add(new Label("No reservations found"));
-        }
-        
-        tab.setContent(content);
-        return tab;
-    }
-    
-    private VBox createReservationCard(Reservation res) {
-        VBox card = new VBox(10);
-        card.setPadding(new Insets(15));
-        card.setStyle("-fx-background-color: white; -fx-background-radius: 8; " +
-                     "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);");
-        
-        Label titleLabel = new Label(res.getPackageName());
-        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 16));
-        
-        Label datesLabel = new Label("📅 " + res.getStartDate() + " to " + res.getEndDate());
-        Label priceLabel = new Label("💰 $" + String.format("%.2f", res.getTotalPrice()));
-        priceLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
-        priceLabel.setTextFill(Color.web("#f97316"));
-        
-        Label statusLabel = new Label("Status: " + res.getStatus().toUpperCase());
-        statusLabel.setStyle("-fx-background-color: " + 
-            (res.getStatus().equals("confirmed") ? "#d1fae5" : "#fef3c7") + 
-            "; -fx-padding: 5 10; -fx-background-radius: 5;");
-        
-        card.getChildren().addAll(titleLabel, datesLabel, priceLabel, statusLabel);
-        return card;
-    }
-    
-    private Tab createAppointmentsTab(Client client) {
-        Tab tab = new Tab("Appointments");
-        tab.setClosable(false);
-        
-        VBox content = new VBox(15);
-        content.setPadding(new Insets(20));
-        
-        Button scheduleButton = new Button("+ Schedule New Appointment");
-        scheduleButton.setStyle("-fx-background-color: #f97316; -fx-text-fill: white; " +
-                               "-fx-font-weight: bold;");
-        scheduleButton.setOnAction(e -> showScheduleDialog(client));
-        
-        content.getChildren().add(scheduleButton);
-        
-        List<Appointment> clientAppointments = appointments.stream()
-            .filter(a -> a.getClientId().equals(client.getClientId()))
-            .toList();
-        
-        for (Appointment apt : clientAppointments) {
-            content.getChildren().add(createAppointmentCard(apt));
-        }
-        
-        tab.setContent(content);
-        return tab;
-    }
-    
-    private VBox createAppointmentCard(Appointment apt) {
-        VBox card = new VBox(8);
-        card.setPadding(new Insets(15));
-        card.setStyle("-fx-background-color: #eff6ff; -fx-background-radius: 8;");
-        
-        Label titleLabel = new Label(apt.getTitle());
-        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
-        
-        Label dateLabel = new Label("📅 " + apt.getDateTime()
-            .format(DateTimeFormatter.ofPattern("EEEE, MMMM dd, yyyy 'at' HH:mm")));
-        
-        Label typeLabel = new Label("📹 " + apt.getType());
-        
-        card.getChildren().addAll(titleLabel, dateLabel, typeLabel);
-        return card;
-    }
-    
-    private Tab createNotesTab(Client client) {
-        Tab tab = new Tab("Notes");
-        tab.setClosable(false);
-        
-        VBox content = new VBox(15);
-        content.setPadding(new Insets(20));
-        
-        TextArea notesArea = new TextArea();
-        notesArea.setPromptText("Add notes about this client...");
-        notesArea.setPrefRowCount(10);
-        
-        Button saveButton = new Button("Save Notes");
-        saveButton.setStyle("-fx-background-color: #10b981; -fx-text-fill: white; " +
-                           "-fx-font-weight: bold;");
-        saveButton.setOnAction(e -> {
-            showAlert("Success", "Notes saved successfully", Alert.AlertType.INFORMATION);
-        });
-        
-        content.getChildren().addAll(notesArea, saveButton);
-        tab.setContent(content);
-        return tab;
-    }
-    
-    private void showScheduleDialog(Client client) {
-        Dialog<ButtonType> dialog = new Dialog<>();
-        dialog.setTitle("Schedule Appointment");
-        dialog.setHeaderText("Schedule a new appointment for " + client.getName());
-        
-        VBox content = new VBox(15);
-        content.setPadding(new Insets(20));
-        
-        TextField titleField = new TextField();
-        titleField.setPromptText("Appointment title");
-        
-        DatePicker datePicker = new DatePicker(LocalDate.now());
-        
-        ComboBox<String> timeCombo = new ComboBox<>();
-        for (int h = 9; h <= 18; h++) {
-            timeCombo.getItems().addAll(
-                String.format("%02d:00", h),
-                String.format("%02d:30", h)
+        for (Advisor adv : advisors) {
+            System.out.printf("%s | %s | %s%n",
+                adv.getAdvisorId(),
+                adv.getFullName(),
+                adv.isActive() ? "✅" : "❌"
             );
         }
-        timeCombo.setValue("10:00");
-        
-        ComboBox<String> typeCombo = new ComboBox<>();
-        typeCombo.getItems().addAll("video_call", "phone_call", "in_person");
-        typeCombo.setValue("video_call");
-        
-        content.getChildren().addAll(
-            new Label("Title:"), titleField,
-            new Label("Date:"), datePicker,
-            new Label("Time:"), timeCombo,
-            new Label("Type:"), typeCombo
-        );
-        
-        dialog.getDialogPane().setContent(content);
-        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
-        
-        dialog.showAndWait().ifPresent((ButtonType response) -> {
-            if (response == ButtonType.OK) {
-                String[] timeParts = timeCombo.getValue().split(":");
-                LocalDateTime dateTime = datePicker.getValue()
-                    .atTime(Integer.parseInt(timeParts[0]), Integer.parseInt(timeParts[1]));
-                
-                Appointment newApt = new Appointment(
-                    "AP" + String.format("%03d", appointments.size() + 1),
-                    client.getClientId(),
-                    dateTime,
-                    titleField.getText(),
-                    typeCombo.getValue()
-                );
-                appointments.add(newApt);
-                
-                showAlert("Success", "Appointment scheduled successfully", 
-                    Alert.AlertType.INFORMATION);
-                showClientProfile(client);
-            }
-        });
     }
     
-    private void showCalendarScreen() {
-        VBox content = new VBox(20);
-        content.setPadding(new Insets(30));
+    private static void adminViewAdvisor() {
+        System.out.print("\n🔍 ID del Advisor: ");
+        String id = scanner.nextLine();
         
-        Label titleLabel = new Label("📅 Appointment Calendar");
-        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
+        Advisor advisor = advisorService.getAdvisorById(id);
         
-        // Calendar view (simplified)
-        VBox calendarBox = new VBox(15);
-        calendarBox.setPadding(new Insets(20));
-        calendarBox.setStyle("-fx-background-color: white; -fx-background-radius: 10;");
-        
-        Label monthLabel = new Label(LocalDate.now().getMonth() + " " + LocalDate.now().getYear());
-        monthLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
-        
-        calendarBox.getChildren().add(monthLabel);
-        
-        for (Appointment apt : appointments) {
-            Client client = findClientById(apt.getClientId());
-            if (client != null) {
-                calendarBox.getChildren().add(createCalendarItem(apt, client));
-            }
+        if (advisor == null) {
+            System.out.println("❌ No encontrado");
+            return;
         }
         
-        content.getChildren().addAll(titleLabel, calendarBox);
-        
-        BorderPane root = (BorderPane) primaryStage.getScene().getRoot();
-        root.setCenter(content);
+        System.out.println("\n" + "═".repeat(50));
+        System.out.println("Nombre: " + advisor.getFullName());
+        System.out.println("Email: " + advisor.getEmail());
+        System.out.println("Activo: " + (advisor.isActive() ? "✅" : "❌"));
     }
     
-    private HBox createCalendarItem(Appointment apt, Client client) {
-        HBox item = new HBox(15);
-        item.setPadding(new Insets(15));
-        item.setAlignment(Pos.CENTER_LEFT);
-        item.setStyle("-fx-background-color: #dbeafe; -fx-background-radius: 8;");
-        
-        VBox timeBox = new VBox(3);
-        Label dateLabel = new Label(apt.getDateTime().format(DateTimeFormatter.ofPattern("MMM dd")));
-        dateLabel.setFont(Font.font("System", FontWeight.BOLD, 12));
-        Label timeLabel = new Label(apt.getDateTime().format(DateTimeFormatter.ofPattern("HH:mm")));
-        timeLabel.setFont(Font.font(14));
-        timeBox.getChildren().addAll(dateLabel, timeLabel);
-        
-        VBox infoBox = new VBox(5);
-        Label clientLabel = new Label(client.getName());
-        clientLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
-        Label titleLabel = new Label(apt.getTitle());
-        titleLabel.setTextFill(Color.GRAY);
-        infoBox.getChildren().addAll(clientLabel, titleLabel);
-        
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-
-        item.getChildren().addAll(timeBox, infoBox, spacer);
-        return item;
+    private static void adminToursMenu() {
+        while (true) {
+            System.out.println("\n🌍 GESTIÓN DE TOURS");
+            System.out.println("1. Crear Tour");
+            System.out.println("2. Listar Tours");
+            System.out.println("3. Ver Detalles");
+            System.out.println("0. Volver");
+            System.out.print("\nOpción: ");
+            
+            int choice = scanner.nextInt();
+            scanner.nextLine();
+            
+            switch (choice) {
+                case 1: adminCreateTour(); break;
+                case 2: adminListTours(); break;
+                case 3: adminViewTour(); break;
+                case 0: return;
+                default: System.out.println("❌ Opción inválida");
+            }
+        }
     }
-
-    private Client findClientById(String clientId) {
-        return clients.stream()
-            .filter(c -> c.getId().equals(clientId))
-            .findFirst()
-            .orElse(null);
+    
+    private static void adminCreateTour() {
+        System.out.println("\n➕ CREAR TOUR");
+        System.out.print("Nombre: ");
+        String name = scanner.nextLine();
+        System.out.print("Descripción: ");
+        String description = scanner.nextLine();
+        System.out.print("Precio: ");
+        double price = scanner.nextDouble();
+        System.out.print("Duración (días): ");
+        int duration = scanner.nextInt();
+        scanner.nextLine();
+        System.out.print("Ubicación: ");
+        String location = scanner.nextLine();
+        System.out.print("Categoría: ");
+        String category = scanner.nextLine();
+        System.out.print("Capacidad: ");
+        int capacity = scanner.nextInt();
+        scanner.nextLine();
+        
+        Tour tour = new Tour(name, description, price, duration, location, category, capacity);
+        
+        if (tourService.createTour(tour)) {
+            System.out.println("✅ Tour creado");
+        } else {
+            System.out.println("❌ Error");
+        }
     }
-
-    private void showAlert(String title, String message, javafx.scene.control.Alert.AlertType type) {
-        javafx.scene.control.Alert alert = new javafx.scene.control.Alert(type);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(message);
-        alert.showAndWait();
+    
+    private static void adminListTours() {
+        System.out.println("\n📋 LISTA DE TOURS");
+        List<Tour> tours = tourService.getAllTours();
+        
+        if (tours.isEmpty()) {
+            System.out.println("No hay tours");
+            return;
+        }
+        
+        for (Tour tour : tours) {
+            System.out.printf("%s | $%.2f | %s | %d/%d%n",
+                tour.getName(),
+                tour.getPrice(),
+                tour.getLocation(),
+                tour.getAvailableSpots(),
+                tour.getMaxCapacity()
+            );
+        }
     }
-
-    private void showReservationsScreen() {
-        System.out.println("Showing reservations screen - To be implemented");
+    
+    private static void adminViewTour() {
+        System.out.print("\n🔍 ID del Tour: ");
+        String id = scanner.nextLine();
+        
+        Tour tour = tourService.getTourById(id);
+        
+        if (tour == null) {
+            System.out.println("❌ No encontrado");
+            return;
+        }
+        
+        System.out.println("\n" + "═".repeat(50));
+        System.out.println("Nombre: " + tour.getName());
+        System.out.println("Precio: $" + tour.getPrice());
+        System.out.println("Ubicación: " + tour.getLocation());
+        System.out.println("Disponibles: " + tour.getAvailableSpots());
+    }
+    
+    private static void adminUsersMenu() {
+        while (true) {
+            System.out.println("\n👥 GESTIÓN DE USUARIOS");
+            System.out.println("1. Listar Usuarios");
+            System.out.println("2. Ver Detalles");
+            System.out.println("0. Volver");
+            System.out.print("\nOpción: ");
+            
+            int choice = scanner.nextInt();
+            scanner.nextLine();
+            
+            switch (choice) {
+                case 1: adminListUsers(); break;
+                case 2: adminViewUser(); break;
+                case 0: return;
+                default: System.out.println("❌ Opción inválida");
+            }
+        }
+    }
+    
+    private static void adminListUsers() {
+        System.out.println("\n📋 LISTA DE USUARIOS");
+        List<User> users = userService.getAllUsers();
+        
+        for (User user : users) {
+            System.out.printf("%s | %s | %s%n",
+                user.getUsername(),
+                user.getFullName(),
+                user.getEmail()
+            );
+        }
+    }
+    
+    private static void adminViewUser() {
+        System.out.print("\n🔍 Username: ");
+        String username = scanner.nextLine();
+        
+        User user = userService.getUserByUsername(username);
+        
+        if (user == null) {
+            System.out.println("❌ No encontrado");
+            return;
+        }
+        
+        System.out.println("\n" + "═".repeat(50));
+        System.out.println("Nombre: " + user.getFullName());
+        System.out.println("Email: " + user.getEmail());
+        System.out.println("Teléfono: " + user.getPhone());
+    }
+    
+    private static void adminReports() {
+        System.out.println("\n📊 REPORTES");
+        System.out.println("Total Advisors: " + advisorService.getTotalAdvisors());
+        System.out.println("Total Tours: " + tourService.getTotalTours());
+        System.out.println("Total Usuarios: " + userService.getTotalUsers());
+    }
+    
+    // ========================================
+    // ADVISOR MENU
+    // ========================================
+    
+    private static void advisorMenu() {
+        while (true) {
+            System.out.println("\n╔════════════════════════════════════╗");
+            System.out.println("║         MENÚ ADVISOR               ║");
+            System.out.println("╚════════════════════════════════════╝");
+            System.out.println("1. 📹 Videollamadas");
+            System.out.println("2. 💰 Cotizaciones");
+            System.out.println("3. 📋 Reservas");
+            System.out.println("0. 🚪 Cerrar Sesión");
+            System.out.print("\nOpción: ");
+            
+            int choice = scanner.nextInt();
+            scanner.nextLine();
+            
+            switch (choice) {
+                case 1: advisorVideoCallsMenu(); break;
+                case 2: advisorQuotationsMenu(); break;
+                case 3: advisorBookingsMenu(); break;
+                case 0:
+                    currentAdvisor = null;
+                    return;
+                default:
+                    System.out.println("❌ Opción inválida");
+            }
+        }
+    }
+    
+    private static void advisorVideoCallsMenu() {
+        System.out.println("\n📹 MIS VIDEOLLAMADAS");
+        System.out.println("1. Programar Videollamada");
+        System.out.println("2. Ver Mis Videollamadas");
+        System.out.println("0. Volver");
+        System.out.print("\nOpción: ");
+        
+        int choice = scanner.nextInt();
+        scanner.nextLine();
+        
+        if (choice == 1) {
+            advisorScheduleVideoCall();
+        } else if (choice == 2) {
+            advisorListVideoCalls();
+        }
+    }
+    
+    private static void advisorScheduleVideoCall() {
+        System.out.println("\n📹 PROGRAMAR VIDEOLLAMADA");
+        System.out.print("Email del cliente: ");
+        String email = scanner.nextLine();
+        System.out.print("Fecha (YYYY-MM-DD): ");
+        String date = scanner.nextLine();
+        System.out.print("Hora (HH:mm): ");
+        String time = scanner.nextLine();
+        
+        Advisor.VideoCall call = new Advisor.VideoCall();
+        call.setClientEmail(email);
+        call.setScheduledDateTime(date + "T" + time);
+        call.setStatus("SCHEDULED");
+        call.setMeetingLink("https://meet.example.com/" + UUID.randomUUID().toString());
+        
+        advisorService.scheduleVideoCall(currentAdvisor.getUsername(), call);
+        currentAdvisor = advisorService.getAdvisorByUsername(currentAdvisor.getUsername());
+        
+        System.out.println("✅ Videollamada programada");
+        System.out.println("Link: " + call.getMeetingLink());
+    }
+    
+    private static void advisorListVideoCalls() {
+        System.out.println("\n📋 MIS VIDEOLLAMADAS");
+        
+        if (currentAdvisor.getVideoCalls().isEmpty()) {
+            System.out.println("No tienes videollamadas programadas");
+            return;
+        }
+        
+        for (Advisor.VideoCall call : currentAdvisor.getVideoCalls()) {
+            System.out.println("\n" + "-".repeat(50));
+            System.out.println("Cliente: " + call.getClientEmail());
+            System.out.println("Fecha: " + call.getScheduledDateTime());
+            System.out.println("Estado: " + call.getStatus());
+            System.out.println("Link: " + call.getMeetingLink());
+        }
+    }
+    
+    private static void advisorQuotationsMenu() {
+        System.out.println("\n💰 COTIZACIONES");
+        System.out.println("1. Crear Cotización");
+        System.out.println("2. Mis Cotizaciones");
+        System.out.println("0. Volver");
+        System.out.print("\nOpción: ");
+        
+        int choice = scanner.nextInt();
+        scanner.nextLine();
+        
+        if (choice == 1) {
+            advisorCreateQuotation();
+        } else if (choice == 2) {
+            advisorListQuotations();
+        }
+    }
+    
+    private static void advisorCreateQuotation() {
+        System.out.println("\n💰 CREAR COTIZACIÓN");
+        System.out.print("Email del cliente: ");
+        String email = scanner.nextLine();
+        System.out.print("Destino: ");
+        String destination = scanner.nextLine();
+        System.out.print("Fecha inicio (YYYY-MM-DD): ");
+        String startDate = scanner.nextLine();
+        System.out.print("Fecha fin (YYYY-MM-DD): ");
+        String endDate = scanner.nextLine();
+        System.out.print("Número de personas: ");
+        int people = scanner.nextInt();
+        System.out.print("Costo estimado: ");
+        double cost = scanner.nextDouble();
+        scanner.nextLine();
+        
+        Advisor.Quotation quot = new Advisor.Quotation();
+        quot.setClientEmail(email);
+        quot.setStatus("PENDING");
+        quot.setEstimatedCost(cost);
+        
+        Advisor.QuotationDetails details = new Advisor.QuotationDetails();
+        details.setDestination(destination);
+        details.setStartDate(startDate);
+        details.setEndDate(endDate);
+        details.setNumberOfPeople(people);
+        quot.setDetails(details);
+        
+        advisorService.addQuotation(currentAdvisor.getUsername(), quot);
+        currentAdvisor = advisorService.getAdvisorByUsername(currentAdvisor.getUsername());
+        
+        System.out.println("✅ Cotización creada");
+    }
+    
+    private static void advisorListQuotations() {
+        System.out.println("\n📋 MIS COTIZACIONES");
+        
+        if (currentAdvisor.getQuotations().isEmpty()) {
+            System.out.println("No tienes cotizaciones");
+            return;
+        }
+        
+        for (Advisor.Quotation quot : currentAdvisor.getQuotations()) {
+            System.out.println("\n" + "-".repeat(50));
+            System.out.println("Cliente: " + quot.getClientEmail());
+            System.out.println("Destino: " + quot.getDetails().getDestination());
+            System.out.println("Estado: " + quot.getStatus());
+            System.out.println("Costo: $" + quot.getEstimatedCost());
+        }
+    }
+    
+    private static void advisorBookingsMenu() {
+        System.out.println("\n📋 RESERVAS");
+        System.out.println("Función en desarrollo");
+    }
+    
+    // ========================================
+    // USER MENU
+    // ========================================
+    
+    private static void userMenu() {
+        while (true) {
+            System.out.println("\n╔════════════════════════════════════╗");
+            System.out.println("║         MENÚ USUARIO               ║");
+            System.out.println("╚════════════════════════════════════╝");
+            System.out.println("1. 🌍 Ver Tours Disponibles");
+            System.out.println("2. 🔍 Buscar Tours");
+            System.out.println("3. 📋 Mis Reservas");
+            System.out.println("0. 🚪 Cerrar Sesión");
+            System.out.print("\nOpción: ");
+            
+            int choice = scanner.nextInt();
+            scanner.nextLine();
+            
+            switch (choice) {
+                case 1: userViewTours(); break;
+                case 2: userSearchTours(); break;
+                case 3: userMyBookings(); break;
+                case 0:
+                    currentUser = null;
+                    return;
+                default:
+                    System.out.println("❌ Opción inválida");
+            }
+        }
+    }
+    
+    private static void userViewTours() {
+        System.out.println("\n🌍 TOURS DISPONIBLES");
+        List<Tour> tours = tourService.getActiveTours();
+        
+        for (Tour tour : tours) {
+            System.out.println("\n" + "-".repeat(50));
+            System.out.println("Nombre: " + tour.getName());
+            System.out.println("Precio: $" + tour.getPrice());
+            System.out.println("Ubicación: " + tour.getLocation());
+            System.out.println("Disponibles: " + tour.getAvailableSpots());
+        }
+    }
+    
+    private static void userSearchTours() {
+        System.out.print("\n🔍 Buscar por nombre: ");
+        String keyword = scanner.nextLine();
+        
+        List<Tour> tours = tourService.searchTours(keyword);
+        
+        if (tours.isEmpty()) {
+            System.out.println("No se encontraron tours");
+            return;
+        }
+        
+        for (Tour tour : tours) {
+            System.out.println("\n" + "-".repeat(50));
+            System.out.println("Nombre: " + tour.getName());
+            System.out.println("Precio: $" + tour.getPrice());
+        }
+    }
+    
+    private static void userMyBookings() {
+        System.out.println("\n📋 MIS RESERVAS");
+        System.out.println("Historial: " + currentUser.getBookingHistory().size() + " reservas");
     }
 }
-
