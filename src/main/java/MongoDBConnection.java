@@ -12,7 +12,7 @@ public class MongoDBConnection {
     
     // Tu cadena de conexión de MongoDB Atlas
     private static final String CONNECTION_STRING = 
-        "mongodb+srv://fatima2345612_db_user:je4zWh1njoBspLU1@cluster0.whutp0a.mongodb.net/project0";
+
     
     private static final String DATABASE_NAME = "project0";
 
