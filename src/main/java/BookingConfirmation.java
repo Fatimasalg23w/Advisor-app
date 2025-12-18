@@ -1,5 +1,5 @@
 // ========================================
-// BookingConfirmation.java - Confirmación de Reserva
+// BookingConfirmation.java - Modelo de Reserva
 // ========================================
 
 import java.util.ArrayList;
@@ -7,32 +7,28 @@ import java.util.List;
 
 public class BookingConfirmation {
     private String bookingId;
-    private String clientBookingNumber;  // Número de reserva del cliente
+    private String clientBookingNumber;    // Número de reserva para el cliente
     private String providerBookingNumber;  // Número de reserva con el proveedor
     private String clientName;
     private String clientEmail;
     private String advisorId;
     private String bookingType;  // "HOTEL_FLIGHT", "HOTEL_FLIGHT_TOUR"
     private String createdAt;
-    private String status;  // "PENDING", "CONFIRMED", "CANCELLED"
+    private String status;  // "CONFIRMED", "PENDING", "CANCELLED"
     private HotelDetails hotel;
     private FlightDetails flight;
-    private List<String> tourIds;  // IDs de tours incluidos
+    private List<String> tourIds;
     private double totalCost;
-    private String paymentStatus;  // "PENDING", "PAID", "REFUNDED"
+    private String paymentStatus;  // "PAID", "PENDING", "REFUNDED"
     private String notes;
 
     public BookingConfirmation() {
         this.bookingId = "BK_" + System.currentTimeMillis();
-        this.clientBookingNumber = generateClientBookingNumber();
+        this.clientBookingNumber = "CLI-" + System.currentTimeMillis();
         this.createdAt = java.time.LocalDateTime.now().toString();
-        this.status = "PENDING";
-        this.paymentStatus = "PENDING";
+        this.status = "CONFIRMED";
         this.tourIds = new ArrayList<>();
-    }
-
-    private String generateClientBookingNumber() {
-        return "CLI-" + System.currentTimeMillis();
+        this.paymentStatus = "PENDING";
     }
 
     // Clase interna: HotelDetails
@@ -166,4 +162,4 @@ public class BookingConfirmation {
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
-}
+    } 

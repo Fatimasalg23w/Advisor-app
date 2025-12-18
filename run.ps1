@@ -1,29 +1,42 @@
-﻿# run.ps1
+﻿# Script para ejecutar Tour Advisor
+Write-Host "Ejecutando Tour Advisor..." -ForegroundColor Cyan
 
-# Limpiar compilaciones anteriores
-Write-Host "Limpiando compilaciones anteriores..." -ForegroundColor Yellow
-Remove-Item -Path "bin\*.class" -ErrorAction SilentlyContinue
-New-Item -ItemType Directory -Force -Path "bin" | Out-Null
-
-# Compilar
-Write-Host "Compilando aplicación..." -ForegroundColor Cyan
-javac --module-path "C:\javafx-sdk-25.0.1\lib" `
-      --add-modules javafx.controls,javafx.fxml `
-      -d bin `
-      src\main\java\*.java
-
-# Verificar compilación
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "Compilación exitosa" -ForegroundColor Green
-    Write-Host "Iniciando aplicación..." -ForegroundColor Cyan
-    Write-Host ""
-    
-    # Ejecutar
-    java --module-path "C:\javafx-sdk-25.0.1\lib" `
-         --add-modules javafx.controls,javafx.fxml `
-         -cp bin `
-         AdvisorApp
-} else {
-    Write-Host "Error en la compilación" -ForegroundColor Red
+# Verificar que existe la carpeta out con archivos compilados
+if (-not (Test-Path "out")) {
+    Write-Host "ERROR: No existe la carpeta out" -ForegroundColor Red
+    Write-Host "Ejecuta primero: .\compile.ps1" -ForegroundColor Yellow
     exit 1
 }
+
+# Verificar que existen archivos .class
+$classFiles = Get-ChildItem -Path "out" -Filter "*.class" -File
+if ($classFiles.Count -eq 0) {
+    Write-Host "ERROR: No hay archivos compilados en out/" -ForegroundColor Red
+    Write-Host "Ejecuta primero: .\compile.ps1" -ForegroundColor Yellow
+    exit 1
+}
+
+Write-Host "Archivos compilados encontrados: $($classFiles.Count)" -ForegroundColor Green
+
+# Verificar que existen los JARs
+$requiredJars = @(
+    "lib\mongodb-driver-sync-4.11.1.jar",
+    "lib\mongodb-driver-core-4.11.1.jar",
+    "lib\bson-4.11.1.jar",
+    "lib\gson-2.10.1.jar"
+)
+
+foreach ($jar in $requiredJars) {
+    if (-not (Test-Path $jar)) {
+        Write-Host "ERROR: Falta el archivo $jar" -ForegroundColor Red
+        exit 1
+    }
+}
+
+# Construir classpath
+$classpath = ($requiredJars -join ";") + ";out"
+
+# Ejecutar la aplicación
+Write-Host "Iniciando aplicacion..." -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Gray
+java -cp $classpath CompleteTourAdvisorApp

@@ -669,3 +669,284 @@ public class CompleteTourAdvisorApp {
         System.out.print("Nombre del hotel: ");
         hotel.setHotelName(scanner.nextLine());
         System.out.print("Check-in (YYYY-MM-DD): ");
+        // ========================================
+// PARTE FALTANTE DE CompleteTourAdvisorApp.java
+// ========================================
+// Esta es la continuación desde advisorCreateBooking
+
+        hotel.setCheckInDate(scanner.nextLine());
+        System.out.print("Check-out (YYYY-MM-DD): ");
+        hotel.setCheckOutDate(scanner.nextLine());
+        System.out.print("Tipo de habitación: ");
+        hotel.setRoomType(scanner.nextLine());
+        System.out.print("Número de habitaciones: ");
+        hotel.setNumberOfRooms(scanner.nextInt());
+        scanner.nextLine();
+        System.out.print("Número de confirmación hotel: ");
+        hotel.setConfirmationNumber(scanner.nextLine());
+        booking.setHotel(hotel);
+
+        // Vuelo
+        BookingConfirmation.FlightDetails flight = new BookingConfirmation.FlightDetails();
+        System.out.println("\n--- VUELO ---");
+        System.out.print("Aerolínea: ");
+        flight.setAirline(scanner.nextLine());
+        System.out.print("Número de vuelo: ");
+        flight.setFlightNumber(scanner.nextLine());
+        System.out.print("Aeropuerto salida: ");
+        flight.setDepartureAirport(scanner.nextLine());
+        System.out.print("Aeropuerto llegada: ");
+        flight.setArrivalAirport(scanner.nextLine());
+        System.out.print("Fecha salida (YYYY-MM-DD): ");
+        flight.setDepartureDate(scanner.nextLine());
+        System.out.print("Hora salida (HH:MM): ");
+        flight.setDepartureTime(scanner.nextLine());
+        System.out.print("Fecha llegada (YYYY-MM-DD): ");
+        flight.setArrivalDate(scanner.nextLine());
+        System.out.print("Hora llegada (HH:MM): ");
+        flight.setArrivalTime(scanner.nextLine());
+        System.out.print("Número de confirmación vuelo: ");
+        flight.setConfirmationNumber(scanner.nextLine());
+        booking.setFlight(flight);
+
+        // Tour (si aplica)
+        if (bookingType.equals("HOTEL_FLIGHT_TOUR")) {
+            System.out.println("\n--- TOUR ---");
+            System.out.print("ID del tour: ");
+            String tourId = scanner.nextLine();
+            booking.getTourIds().add(tourId);
+        }
+
+        System.out.print("\nCosto total: ");
+        booking.setTotalCost(scanner.nextDouble());
+        scanner.nextLine();
+
+        bookingService.createBooking(booking);
+        
+        System.out.println("\n✅ RESERVA CREADA");
+        System.out.println("   Número cliente: " + booking.getClientBookingNumber());
+        System.out.println("   Número proveedor: " + booking.getProviderBookingNumber());
+    }
+
+    private static void advisorViewMyBookings() {
+        System.out.println("\n📋 MIS RESERVAS");
+        System.out.println("-".repeat(50));
+        
+        List<BookingConfirmation> bookings = bookingService.getBookingsByAdvisor(
+            currentAdvisor.getAdvisorId()
+        );
+        
+        if (bookings.isEmpty()) {
+            System.out.println("No tienes reservas");
+            return;
+        }
+
+        for (BookingConfirmation booking : bookings) {
+            System.out.println("\n🎫 " + booking.getClientBookingNumber());
+            System.out.println("   Cliente: " + booking.getClientName());
+            System.out.println("   Tipo: " + booking.getBookingType());
+            System.out.println("   Total: $" + booking.getTotalCost());
+            System.out.println("   Estado: " + booking.getStatus());
+        }
+    }
+
+    private static void advisorSearchBooking() {
+        System.out.print("\n🔍 Número de reserva: ");
+        String bookingNumber = scanner.nextLine();
+        
+        BookingConfirmation booking = bookingService.getByClientNumber(bookingNumber);
+        if (booking == null) {
+            booking = bookingService.getByProviderNumber(bookingNumber);
+        }
+        
+        if (booking != null) {
+            System.out.println("\n✅ RESERVA ENCONTRADA");
+            System.out.println("Cliente: " + booking.getClientName());
+            System.out.println("Número cliente: " + booking.getClientBookingNumber());
+            System.out.println("Número proveedor: " + booking.getProviderBookingNumber());
+            System.out.println("Tipo: " + booking.getBookingType());
+            System.out.println("Hotel: " + booking.getHotel().getHotelName());
+            System.out.println("Vuelo: " + booking.getFlight().getFlightNumber());
+            System.out.println("Total: $" + booking.getTotalCost());
+            System.out.println("Estado: " + booking.getStatus());
+        } else {
+            System.out.println("❌ Reserva no encontrada");
+        }
+    }
+
+    // ========================================
+    // MENÚ USUARIO/CLIENTE
+    // ========================================
+    private static void userMenu() {
+        boolean running = true;
+        while (running) {
+            System.out.println("\n" + "=".repeat(50));
+            System.out.println("👤 PANEL USUARIO: " + currentUser.getFullName());
+            System.out.println("=".repeat(50));
+            System.out.println("TOURS:");
+            System.out.println("  1. 📋 Ver todos los tours disponibles");
+            System.out.println("  2. 🔍 Buscar tour");
+            System.out.println("  3. ⭐ Ver mis favoritos");
+            System.out.println("  4. ➕ Agregar tour a favoritos");
+            System.out.println("\nRESERVAS:");
+            System.out.println("  5. 📖 Ver mi historial de reservas");
+            System.out.println("\nMI CUENTA:");
+            System.out.println("  6. 👤 Ver mi perfil");
+            System.out.println("  7. ✏️  Editar mi perfil");
+            System.out.println("\n  0. 🚪 Cerrar sesión");
+            System.out.println("=".repeat(50));
+            System.out.print("Opción: ");
+            
+            int opcion = scanner.nextInt();
+            scanner.nextLine();
+            
+            switch (opcion) {
+                case 1: userViewAllTours(); break;
+                case 2: userSearchTour(); break;
+                case 3: userViewFavorites(); break;
+                case 4: userAddFavorite(); break;
+                case 5: userViewBookingHistory(); break;
+                case 6: userViewProfile(); break;
+                case 7: userEditProfile(); break;
+                case 0: running = false; break;
+                default: System.out.println("❌ Opción inválida");
+            }
+        }
+    }
+
+    private static void userViewAllTours() {
+        System.out.println("\n📋 TOURS DISPONIBLES");
+        System.out.println("-".repeat(50));
+        
+        List<Tour> tours = tourService.getAllTours();
+        if (tours.isEmpty()) {
+            System.out.println("No hay tours disponibles");
+            return;
+        }
+
+        for (int i = 0; i < tours.size(); i++) {
+            Tour tour = tours.get(i);
+            System.out.println("\n" + (i+1) + ". 🎫 " + tour.getTourName());
+            System.out.println("   📅 " + tour.getMonth() + " " + tour.getYear());
+            System.out.println("   ✈️  " + (tour.getAirport() != null ? tour.getAirport().getCode() : "N/A"));
+            System.out.println("   📍 Duración: " + tour.getDays().size() + " días");
+            System.out.println("   🏷️  ID: " + tour.getTourId());
+        }
+    }
+
+    private static void userSearchTour() {
+        System.out.print("\n🔍 Nombre del tour: ");
+        String nombre = scanner.nextLine();
+        
+        Tour tour = tourService.getTourByName(nombre);
+        if (tour != null) {
+            System.out.println("\n✅ TOUR ENCONTRADO");
+            System.out.println("Nombre: " + tour.getTourName());
+            System.out.println("Fecha: " + tour.getMonth() + " " + tour.getYear());
+            System.out.println("Aeropuerto: " + (tour.getAirport() != null ? tour.getAirport().getName() : "N/A"));
+            System.out.println("Duración: " + tour.getDays().size() + " días");
+            System.out.println("ID: " + tour.getTourId());
+            
+            System.out.println("\n📅 ITINERARIO:");
+            for (Tour.Day day : tour.getDays()) {
+                System.out.println("  Día " + day.getDay() + ": " + day.getActivity());
+            }
+        } else {
+            System.out.println("❌ Tour no encontrado");
+        }
+    }
+
+    private static void userViewFavorites() {
+        System.out.println("\n⭐ MIS TOURS FAVORITOS");
+        System.out.println("-".repeat(50));
+        
+        if (currentUser.getFavoriteToursIds().isEmpty()) {
+            System.out.println("No tienes tours favoritos");
+            return;
+        }
+
+        for (String tourId : currentUser.getFavoriteToursIds()) {
+            Tour tour = tourService.getTourById(tourId);
+            if (tour != null) {
+                System.out.println("\n🎫 " + tour.getTourName());
+                System.out.println("   📅 " + tour.getMonth() + " " + tour.getYear());
+                System.out.println("   📍 " + tour.getDays().size() + " días");
+            }
+        }
+    }
+
+    private static void userAddFavorite() {
+        System.out.print("\n➕ ID del tour a agregar: ");
+        String tourId = scanner.nextLine();
+        
+        Tour tour = tourService.getTourById(tourId);
+        if (tour != null) {
+            userService.addFavoriteTour(currentUser.getUsername(), tourId);
+            currentUser = userService.getUserByUsername(currentUser.getUsername());
+            System.out.println("✅ Tour agregado a favoritos: " + tour.getTourName());
+        } else {
+            System.out.println("❌ Tour no encontrado");
+        }
+    }
+
+    private static void userViewBookingHistory() {
+        System.out.println("\n📖 MI HISTORIAL DE RESERVAS");
+        System.out.println("-".repeat(50));
+        
+        if (currentUser.getBookingHistory().isEmpty()) {
+            System.out.println("No tienes reservas");
+            return;
+        }
+
+        for (String bookingId : currentUser.getBookingHistory()) {
+            BookingConfirmation booking = bookingService.getByClientNumber(bookingId);
+            if (booking != null) {
+                System.out.println("\n🎫 " + booking.getClientBookingNumber());
+                System.out.println("   Tipo: " + booking.getBookingType());
+                System.out.println("   Hotel: " + booking.getHotel().getHotelName());
+                System.out.println("   Total: $" + booking.getTotalCost());
+                System.out.println("   Estado: " + booking.getStatus());
+            }
+        }
+    }
+
+    private static void userViewProfile() {
+        System.out.println("\n👤 MI PERFIL");
+        System.out.println("-".repeat(50));
+        System.out.println("Username: " + currentUser.getUsername());
+        System.out.println("Nombre: " + currentUser.getFullName());
+        System.out.println("Email: " + currentUser.getEmail());
+        System.out.println("Teléfono: " + currentUser.getPhone());
+        System.out.println("Dirección: " + currentUser.getAddress());
+        System.out.println("Tours favoritos: " + currentUser.getFavoriteToursIds().size());
+        System.out.println("Reservas: " + currentUser.getBookingHistory().size());
+    }
+
+    private static void userEditProfile() {
+        System.out.println("\n✏️  EDITAR PERFIL");
+        System.out.println("-".repeat(50));
+        
+        System.out.print("Nuevo nombre completo (Enter para no cambiar): ");
+        String fullName = scanner.nextLine();
+        if (!fullName.isEmpty()) {
+            currentUser.setFullName(fullName);
+        }
+        
+        System.out.print("Nuevo teléfono (Enter para no cambiar): ");
+        String phone = scanner.nextLine();
+        if (!phone.isEmpty()) {
+            currentUser.setPhone(phone);
+        }
+        
+        System.out.print("Nueva dirección (Enter para no cambiar): ");
+        String address = scanner.nextLine();
+        if (!address.isEmpty()) {
+            currentUser.setAddress(address);
+        }
+        
+        userService.updateUser(currentUser);
+        System.out.println("✅ Perfil actualizado");
+    }
+}
+         
+    
